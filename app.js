@@ -1,59 +1,46 @@
 const express = require("express");
+const { isReady, PrivateKey, Field, Signature } = require("snarkyjs");
 const app = express();
 const port = process.env.PORT || 3001;
 
-app.get("/", (req, res) => res.type('html').send(html));
+async function getCreditScore(id) {
+  // We need to wait for SnarkyJS to finish loading before we can do anything
+  await isReady;
+
+  // The private key of our account. When running locally the hardcoded key will
+  // be used. In production the key will be loaded from a Vercel environment
+  // variable.
+  const privateKey = PrivateKey.fromBase58(
+    process.env.PRIVATE_KEY ??
+      "EKF65JKw9Q1XWLDZyZNGysBbYG21QbJf3a4xnEoZPZ28LKYGMw53"
+  );
+
+  // We get the users credit score. In this case it's 787 for user 1, and 536
+  // for anybody else :)
+  const knownCreditScore = (id) => (id === "1" ? 787 : 536);
+
+  // We compute the public key associated with our private key
+  const publicKey = privateKey.toPublicKey();
+
+  // Define a Field with the value of the users id
+  const userId = Field(id);
+
+  // Define a Field with the users credit score
+  const creditScore = Field(knownCreditScore(id));
+
+  // Use our private key to sign an array of Fields containing the users id and
+  // credit score
+  const signature = Signature.create(privateKey, [userId, creditScore]);
+  console.log(process.memoryUsage());
+  return {
+    data: { id: userId, creditScore: creditScore },
+    signature: signature,
+    publicKey: privateKey,
+  };
+}
+
+app.get("/user/:id", async (req, res) =>
+  res.send(await getCreditScore(req.params.id))
+);
 
 app.listen(port, () => console.log(`Example app listening on port ${port}!`));
-
-
-const html = `
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>Hello from Render!</title>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
-    <script>
-      setTimeout(() => {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-          disableForReducedMotion: true
-        });
-      }, 500);
-    </script>
-    <style>
-      @import url("https://p.typekit.net/p.css?s=1&k=vnd5zic&ht=tk&f=39475.39476.39477.39478.39479.39480.39481.39482&a=18673890&app=typekit&e=css");
-      @font-face {
-        font-family: "neo-sans";
-        src: url("https://use.typekit.net/af/00ac0a/00000000000000003b9b2033/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff2"), url("https://use.typekit.net/af/00ac0a/00000000000000003b9b2033/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff"), url("https://use.typekit.net/af/00ac0a/00000000000000003b9b2033/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("opentype");
-        font-style: normal;
-        font-weight: 700;
-      }
-      html {
-        font-family: neo-sans;
-        font-weight: 700;
-        font-size: calc(62rem / 16);
-      }
-      body {
-        background: white;
-      }
-      section {
-        border-radius: 1em;
-        padding: 1em;
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        margin-right: -50%;
-        transform: translate(-50%, -50%);
-      }
-    </style>
-  </head>
-  <body>
-    <section>
-      Hello from Render!
-    </section>
-  </body>
-</html>
-`
